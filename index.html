@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Likho AI — Content Generator</title>
+<link rel="manifest" href="/manifest.json" />
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+<link rel="apple-touch-icon" href="/icon-180.png" />
+<meta name="theme-color" content="#3D5A45" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #FAF9F5;
+    color: #20241F;
+    font-family: Georgia, 'Times New Roman', serif;
+  }
+  .ui-font { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  header {
+    padding: 24px 20px 18px;
+    border-bottom: 1px solid #E3E0D4;
+  }
+  header h1 { margin: 0; font-size: 24px; font-weight: 400; }
+  header p { margin: 6px 0 0; color: #5B5B52; font-size: 13px; }
+  .container { padding: 20px; max-width: 700px; margin: 0 auto; }
+  label {
+    font-size: 12px; color: #5B5B52; display: block; margin-bottom: 8px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+  .chip {
+    border: 1px solid #D7D3C6; background: #fff; border-radius: 4px;
+    padding: 10px; text-align: left; cursor: pointer; font-family: inherit;
+  }
+  .chip.active { background: #3D5A45; border-color: #3D5A45; color: #FAF9F5; }
+  .chip b { display: block; font-size: 13px; }
+  .chip span { font-size: 11px; opacity: 0.75; }
+  .row-chip { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .row-chip .chip { border-radius: 20px; padding: 6px 14px; font-size: 13px; }
+  textarea, select {
+    width: 100%; padding: 10px; border: 1px solid #D7D3C6; border-radius: 4px;
+    font-family: inherit; font-size: 14px; margin-bottom: 20px; background: #fff;
+  }
+  button.generate {
+    width: 100%; padding: 14px; border: none; border-radius: 4px;
+    background: #C9A227; color: #20241F; font-size: 15px; font-weight: 600;
+    cursor: pointer; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  button.generate:disabled { opacity: 0.6; }
+  #error { color: #A33B2B; font-size: 13px; margin-top: 10px; font-family: -apple-system, sans-serif; }
+  #output {
+    margin-top: 24px; min-height: 200px; border: 1px solid #E3E0D4; border-radius: 6px;
+    padding: 20px; background: #fff; line-height: 1.75; font-size: 16px; white-space: pre-wrap;
+  }
+  #outputHead { display: flex; justify-content: space-between; align-items: center; margin-top: 28px; }
+  #copyBtn {
+    background: none; border: 1px solid #D7D3C6; border-radius: 4px; padding: 6px 14px;
+    font-size: 12px; cursor: pointer; font-family: -apple-system, sans-serif;
+  }
+  .placeholder { color: #8A8778; font-family: -apple-system, sans-serif; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Likho AI</h1>
+  <p>Topic dijiye, format aur tone chuniye, content taiyaar.</p>
+</header>
+
+<div class="container">
+  <label>CONTENT TYPE</label>
+  <div class="grid" id="typeGrid"></div>
+
+  <label>TOPIC / IDEA</label>
+  <textarea id="topic" rows="4" placeholder="e.g. Ghar baithe fitness tips for beginners"></textarea>
+
+  <label>TONE</label>
+  <div class="row-chip" id="toneRow"></div>
+
+  <label>LENGTH</label>
+  <div class="grid" id="lengthGrid" style="grid-template-columns: 1fr 1fr 1fr;"></div>
+
+  <label>LANGUAGE</label>
+  <select id="language">
+    <option>English</option>
+    <option>Hindi</option>
+    <option>Hinglish</option>
+  </select>
+
+  <button class="generate" id="genBtn">Content Generate Karo</button>
+  <div id="error"></div>
+
+  <div id="outputHead" style="display:none;">
+    <span class="ui-font" style="font-size:12px;color:#5B5B52;">OUTPUT</span>
+    <button id="copyBtn">Copy</button>
+  </div>
+  <div id="output"><span class="placeholder">Aapka generated content yahan dikhega.</span></div>
+</div>
+
+<script>
+  const CONTENT_TYPES = [
+    { id: "Blog Post", label: "Blog Post", desc: "Long-form article" },
+    { id: "Social Caption", label: "Social Caption", desc: "Instagram / LinkedIn" },
+    { id: "Email", label: "Email", desc: "Marketing or personal" },
+    { id: "Ad Copy", label: "Ad Copy", desc: "Short & persuasive" },
+    { id: "Video Script", label: "Video Script", desc: "YouTube / Reels" },
+    { id: "Short Story", label: "Short Story", desc: "Creative fiction" },
+  ];
+  const TONES = ["Professional", "Friendly", "Witty", "Bold", "Calm", "Persuasive"];
+  const LENGTHS = [{id:"short",label:"Short"},{id:"medium",label:"Medium"},{id:"long",label:"Long"}];
+
+  let state = { contentType: CONTENT_TYPES[0].id, tone: TONES[0], length: "medium" };
+
+  const typeGrid = document.getElementById("typeGrid");
+  CONTENT_TYPES.forEach(c => {
+    const btn = document.createElement("button");
+    btn.className = "chip" + (c.id === state.contentType ? " active" : "");
+    btn.innerHTML = `<b>${c.label}</b><span>${c.desc}</span>`;
+    btn.onclick = () => { state.contentType = c.id; render(); };
+    btn.dataset.id = c.id;
+    typeGrid.appendChild(btn);
+  });
+
+  const toneRow = document.getElementById("toneRow");
+  TONES.forEach(t => {
+    const btn = document.createElement("button");
+    btn.className = "chip" + (t === state.tone ? " active" : "");
+    btn.textContent = t;
+    btn.onclick = () => { state.tone = t; render(); };
+    btn.dataset.id = t;
+    toneRow.appendChild(btn);
+  });
+
+  const lengthGrid = document.getElementById("lengthGrid");
+  LENGTHS.forEach(l => {
+    const btn = document.createElement("button");
+    btn.className = "chip" + (l.id === state.length ? " active" : "");
+    btn.textContent = l.label;
+    btn.onclick = () => { state.length = l.id; render(); };
+    btn.dataset.id = l.id;
+    lengthGrid.appendChild(btn);
+  });
+
+  function render() {
+    [...typeGrid.children].forEach(b => b.classList.toggle("active", b.dataset.id === state.contentType));
+    [...toneRow.children].forEach(b => b.classList.toggle("active", b.dataset.id === state.tone));
+    [...lengthGrid.children].forEach(b => b.classList.toggle("active", b.dataset.id === state.length));
+  }
+
+  const genBtn = document.getElementById("genBtn");
+  const errorEl = document.getElementById("error");
+  const outputEl = document.getElementById("output");
+  const outputHead = document.getElementById("outputHead");
+  const copyBtn = document.getElementById("copyBtn");
+
+  genBtn.onclick = async () => {
+    const topic = document.getElementById("topic").value.trim();
+    const language = document.getElementById("language").value;
+    errorEl.textContent = "";
+
+    if (!topic) {
+      errorEl.textContent = "Pehle topic ya idea likhiye.";
+      return;
+    }
+
+    genBtn.disabled = true;
+    genBtn.textContent = "Likha ja raha hai...";
+    outputEl.innerHTML = '<span class="placeholder">Content taiyaar ho raha hai, ek pal ruko...</span>';
+    outputHead.style.display = "none";
+
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...state, topic, language }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Kuch galat ho gaya.");
+
+      outputEl.textContent = data.text;
+      outputHead.style.display = "flex";
+    } catch (err) {
+      errorEl.textContent = err.message || "Kuch galat ho gaya. Dobara try karo.";
+      outputEl.innerHTML = '<span class="placeholder">Aapka generated content yahan dikhega.</span>';
+    } finally {
+      genBtn.disabled = false;
+      genBtn.textContent = "Content Generate Karo";
+    }
+  };
+
+  copyBtn.onclick = () => {
+    navigator.clipboard.writeText(outputEl.textContent);
+    copyBtn.textContent = "Copied!";
+    setTimeout(() => (copyBtn.textContent = "Copy"), 1500);
+  };
+</script>
+</body>
+</html>
