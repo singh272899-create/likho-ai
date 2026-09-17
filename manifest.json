@@ -3,6 +3,7 @@
   "short_name": "Likho AI",
   "description": "AI se content likho - blog, caption, email aur script, sab ek jagah",
   "start_url": "/",
+  "id": "/", "orientation": "portrait",
   "display": "standalone",
   "background_color": "#FAF9F5",
   "theme_color": "#3D5A45",
